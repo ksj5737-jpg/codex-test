@@ -1,0 +1,11 @@
+SCRFD-2.5G pretrained detector weights
+Source: InsightFace official buffalo_m model pack, release v0.7.
+https://github.com/deepinsight/insightface/releases/tag/v0.7
+https://github.com/deepinsight/insightface/blob/master/model_zoo/README.md
+
+The upstream model zoo states:
+"ALL models are available for non-commercial research purposes only."
+
+The pretrained model restriction is distinct from the InsightFace code license
+and the ONNX Runtime license. Obtain appropriate model rights before commercial use.
+This app uses only generic face detection, not identity recognition.

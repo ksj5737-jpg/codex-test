@@ -4,15 +4,24 @@ FACE LIBRARY - WINDOWS
 2. Open the extracted face-library folder.
 3. Double-click "Start Face Library.bat".
 4. The first start installs dependencies and needs Internet access.
+   It also downloads and verifies the tiny YuNet model. Later imports work offline.
 5. A Face Library desktop window opens automatically. No browser is needed.
 6. Click Import photos and choose your images.
 7. Select a photo on the left, review the faces, enter a tag, and click Save tag.
 8. Use the Show dropdown to filter photos by tag.
 
+Choose YuNet or SCRFD-2.5G before importing. Both run locally on your CPU.
+If YuNet could not download, SCRFD is selected. Run the launcher again to retry.
+SCRFD pretrained weights are restricted to non-commercial research purposes only.
+
 Accuracy: choose Balanced initially. Before importing, choose Strict if objects
 are detected as faces, or Sensitive if real faces are missed. Sensitive may add
 more false faces. Click Not a face to remove a wrong thumbnail without deleting
 the photo. Mode changes affect new imports only; re-import to try another mode.
+The photo list and details show which model created each photo's detections.
+
+Upgrading: close both app versions. Back up the old data folder, then copy it
+into the new project folder to keep your imported photos and tags.
 
 Close the desktop window to exit. Let active imports finish before closing.
 

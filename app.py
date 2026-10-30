@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, render_template, request, send_file
 from PIL import Image, ImageOps, UnidentifiedImageError
-from face_detector import FaceDetector, MODES
+from face_detector import FaceDetector, MODES, DETECTORS
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 40 * 1024 * 1024
@@ -28,6 +28,10 @@ with db() as conn:
     CREATE TABLE IF NOT EXISTS faces(id TEXT PRIMARY KEY, photo_id TEXT NOT NULL
         REFERENCES photos(id), tag TEXT NOT NULL DEFAULT '');
     ''')
+    columns = {row['name'] for row in conn.execute('PRAGMA table_info(photos)')}
+    for column, default in [('detector', 'Legacy SSD'), ('detection_mode', 'Balanced')]:
+        if column not in columns:
+            conn.execute(f"ALTER TABLE photos ADD COLUMN {column} TEXT NOT NULL DEFAULT '{default}'")
 
 
 @app.before_request
@@ -65,6 +69,9 @@ def photos():
 @app.post('/api/upload')
 def upload():
     mode = request.form.get('mode', 'Balanced')
+    model = request.form.get('detector', 'YuNet')
+    if model not in DETECTORS:
+        return jsonify(error='Choose YuNet, SCRFD-2.5G, or Legacy SSD.'), 400
     if mode not in MODES:
         return jsonify(error='Choose Strict, Balanced, or Sensitive detection.'), 400
     files = request.files.getlist('images')
@@ -78,13 +85,14 @@ def upload():
                     raise ValueError('Image exceeds 30 megapixels')
                 img = ImageOps.exif_transpose(original).convert('RGB')
                 img.thumbnail((2400, 2400))
-            boxes = detector.detect(img, mode)
+            boxes = detector.detect(img, mode, model)
             photo_id = uuid.uuid4().hex
             img.save(DATA / f'{photo_id}.jpg', quality=90)
             face_ids = []
             try:
                 with db() as conn:
-                    conn.execute('INSERT INTO photos VALUES (?,?)', (photo_id, file.filename or 'Photo'))
+                    conn.execute('INSERT INTO photos(id,name,detector,detection_mode) VALUES (?,?,?,?)',
+                        (photo_id, file.filename or 'Photo', model, mode))
                     for x, y, w, h in boxes:
                         face_id = uuid.uuid4().hex
                         face_ids.append(face_id)
@@ -99,6 +107,8 @@ def upload():
                     (DATA / f'{item}.jpg').unlink(missing_ok=True)
                 raise
             results.append(dict(name=file.filename, faces=len(boxes), ok=True))
+        except RuntimeError as error:
+            return jsonify(error=str(error)), 503
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
             results.append(dict(name=file.filename, ok=False, error='Unsupported, damaged, or oversized image.'))
     return jsonify(results)

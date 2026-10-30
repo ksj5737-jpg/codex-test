@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import numpy as np
 from PIL import Image
-from face_detector import FaceDetector
+from legacy_detector import FaceDetector
 
 
 class DetectorFiltering(unittest.TestCase):

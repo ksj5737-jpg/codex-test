@@ -22,6 +22,9 @@ if errorlevel 1 goto invalid_venv
 ".venv312\Scripts\python.exe" -m pip install --only-binary=:all: -r requirements.txt
 if errorlevel 1 goto failed
 echo.
+".venv312\Scripts\python.exe" download_models.py
+if errorlevel 1 echo Model setup incomplete. You can select SCRFD-2.5G if YuNet could not download.
+echo.
 echo Opening the Face Library desktop window. No browser is needed.
 echo.
 ".venv312\Scripts\python.exe" desktop.py

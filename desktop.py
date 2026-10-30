@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from PIL import Image, ImageTk
 from app import app, DATA
+from model_assets import valid_model
 
 
 def library_request(path, **kwargs):
@@ -18,13 +19,13 @@ def library_request(path, **kwargs):
         return result
 
 
-def import_files(paths, mode='Balanced'):
+def import_files(paths, mode='Balanced', detector='YuNet'):
     results = []
     for path in paths:
         try:
             with open(path, 'rb') as source:
                 results.extend(library_request('/api/upload', method='POST',
-                    data={'images': (source, Path(path).name), 'mode': mode}))
+                    data={'images': (source, Path(path).name), 'mode': mode, 'detector': detector}))
         except Exception as error:
             results.append({'name': Path(path).name, 'ok': False, 'error': str(error)})
     return results
@@ -54,11 +55,16 @@ class FaceLibrary(tk.Tk):
         self.filter.bind('<<ComboboxSelected>>', lambda event: self.render_list())
         settings = ttk.Frame(self, padding=(16, 0, 16, 10))
         settings.pack(fill='x')
-        ttk.Label(settings, text='Detection for new imports: ').pack(side='left')
+        ttk.Label(settings, text='New imports: ').pack(side='left')
+        self.detector = ttk.Combobox(settings, state='readonly', values=['YuNet', 'SCRFD-2.5G', 'Legacy SSD'], width=14)
+        self.detector.set('YuNet' if valid_model('YuNet') else 'SCRFD-2.5G')
+        self.detector.pack(side='left', padx=(0, 8))
         self.mode = ttk.Combobox(settings, state='readonly', values=['Strict', 'Balanced', 'Sensitive'], width=12)
         self.mode.set('Balanced')
         self.mode.pack(side='left')
-        ttk.Label(settings, text='  Strict: fewer false faces · Sensitive: more faces, more false detections').pack(side='left')
+        ttk.Label(settings, text='  Strict: fewer false faces · Sensitive: more detections').pack(side='left')
+        ttk.Label(self, text='SCRFD pretrained weights: non-commercial research only. Both detectors run on your CPU.',
+            padding=(16, 0, 16, 10)).pack(fill='x')
         split = ttk.Panedwindow(self, orient='horizontal')
         split.pack(fill='both', expand=True, padx=16)
         left = ttk.Frame(split)
@@ -81,6 +87,8 @@ class FaceLibrary(tk.Tk):
         self.canvas.bind('<Configure>', lambda event: self.canvas.itemconfigure(window, width=event.width))
         split.add(right, weight=3)
         self.status = tk.StringVar(value='Import photos to begin. No browser or server is needed.')
+        if not valid_model('YuNet'):
+            self.status.set('YuNet is not installed. SCRFD-2.5G selected. Run download_models.py to install YuNet.')
         ttk.Label(self, textvariable=self.status, padding=16, wraplength=1000).pack(fill='x')
         self.refresh()
         self.after(100, self.poll_jobs)
@@ -102,7 +110,7 @@ class FaceLibrary(tk.Tk):
             for f in p['faces'])]
         self.listbox.delete(0, 'end')
         for photo in self.visible:
-            self.listbox.insert('end', photo['name'])
+            self.listbox.insert('end', photo['name'] + ' [' + photo['detector'] + ']')
         selected = next((i for i, p in enumerate(self.visible) if p['id'] == self.selected_id), 0)
         if self.visible:
             self.listbox.selection_set(selected)
@@ -134,6 +142,7 @@ class FaceLibrary(tk.Tk):
         self.clear_detail()
         self.canvas.yview_moveto(0)
         ttk.Label(self.detail, text=photo['name'], wraplength=540, font=('Segoe UI', 14, 'bold')).pack(anchor='w')
+        ttk.Label(self.detail, text=photo['detector'] + ' · ' + photo['detection_mode']).pack(anchor='w')
         try:
             self.image_label(self.detail, photo['id'], (560, 340))
             ttk.Label(self.detail, text=f"{len(photo['faces'])} detected faces · review and tag below").pack(anchor='w')
@@ -167,9 +176,10 @@ class FaceLibrary(tk.Tk):
         self.import_button.state(['disabled'])
         self.status.set(f'Importing {len(paths)} photos and detecting faces…')
         mode = self.mode.get()
+        detector = self.detector.get()
         def work():
             try:
-                self.jobs.put(('done', import_files(paths, mode)))
+                self.jobs.put(('done', import_files(paths, mode, detector)))
             except Exception as error:
                 self.jobs.put(('error', str(error)))
         threading.Thread(target=work, daemon=True).start()
