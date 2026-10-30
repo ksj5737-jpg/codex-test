@@ -22,12 +22,11 @@ if errorlevel 1 goto invalid_venv
 ".venv312\Scripts\python.exe" -m pip install --only-binary=:all: -r requirements.txt
 if errorlevel 1 goto failed
 echo.
-echo Open http://127.0.0.1:5000 in your browser after the server starts.
-echo Keep this window open while using the app. Press Ctrl+C to stop.
+echo Opening the Face Library desktop window. No browser is needed.
 echo.
-".venv312\Scripts\python.exe" app.py
+".venv312\Scripts\python.exe" desktop.py
 if errorlevel 1 goto failed
-goto end
+exit /b 0
 :need_python
 echo.
 echo This app requires Python 3.12, 64-bit. Other Python versions can stay installed.

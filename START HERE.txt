@@ -4,14 +4,12 @@ FACE LIBRARY - WINDOWS
 2. Open the extracted face-library folder.
 3. Double-click "Start Face Library.bat".
 4. The first start installs dependencies and needs Internet access.
-5. When the terminal says the server is running, open this address in a browser:
+5. A Face Library desktop window opens automatically. No browser is needed.
+6. Click Import photos and choose your images.
+7. Select a photo on the left, review the faces, enter a tag, and click Save tag.
+8. Use the Show dropdown to filter photos by tag.
 
-   http://127.0.0.1:5000
-
-6. The page should say "Connected - ready to import" (with a dot separator).
-7. Import a few photos, review the detected faces, and enter your own tags.
-
-Keep the terminal open. Press Ctrl+C to stop the server.
+Close the desktop window to exit. Let active imports finish before closing.
 
 Python 3.12, 64-bit is required. To install it, run in PowerShell:
 winget install -e --id Python.Python.3.12 --architecture x64

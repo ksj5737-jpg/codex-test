@@ -52,6 +52,23 @@ class PhotoWorkflow(unittest.TestCase):
         self.assertFalse(response.json[0]['ok'])
         self.assertEqual(self.client.get('/api/photos').json, [])
 
+    def test_desktop_import_and_tags_without_server(self):
+        from desktop import import_files, library_request
+        with tempfile.TemporaryDirectory() as folder:
+            image = os.path.join(folder, 'blank.png')
+            Image.new('RGB', (100, 100), 'white').save(image)
+            with patch.object(module, 'detector') as detector, patch.object(module.app, 'run', side_effect=AssertionError('No server should start')):
+                detector.detectMultiScale.return_value = [(10, 10, 40, 40)]
+                result = import_files([image, os.path.join(folder, 'missing.png')])
+                self.assertTrue(result[0]['ok'])
+                self.assertFalse(result[1]['ok'])
+                photos = library_request('/api/photos')
+                face_id = photos[0]['faces'][0]['id']
+                library_request('/api/faces/' + face_id + '/tag', method='POST', json={'tag': 'Manual tag'})
+                self.assertEqual(library_request('/api/photos')[0]['faces'][0]['tag'], 'Manual tag')
+                with self.assertRaises(ValueError):
+                    library_request('/api/faces/' + face_id + '/tag', method='POST', json={'tag': 'x' * 81})
+
     def test_local_security_and_tag_validation(self):
         self.assertEqual(self.client.get('/api/health').json, {'service': 'face-library', 'ready': True})
         self.assertEqual(self.client.get('/', headers={'Host': 'example.com'}).status_code, 403)
