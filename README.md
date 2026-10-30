@@ -10,7 +10,14 @@ On Windows, extract the complete project ZIP and double-click
 the virtual environment, installs dependencies, and starts the server. Then
 open `http://127.0.0.1:5000` in your browser. Keep the terminal open.
 
-Requires Python 3.12 (tested).
+Requires 64-bit Python 3.12 (tested). The Windows launcher uses `.venv312`
+and installs prebuilt wheels only. Python 3.15 is incompatible with the pinned
+NumPy/Pillow versions; installing a compiler is not necessary. Install Python
+3.12 alongside other versions with:
+
+```powershell
+winget install -e --id Python.Python.3.12 --architecture x64
+```
 
 **The HTML file preview is not the running app.** Importing needs the Python
 server. Download or clone the whole project onto your computer, open a terminal
@@ -27,9 +34,9 @@ python3 -m venv .venv
 On Windows PowerShell, from the project folder:
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe app.py
+py -3.12 -m venv .venv312
+.venv312\Scripts\python.exe -m pip install --only-binary=:all: -r requirements.txt
+.venv312\Scripts\python.exe app.py
 ```
 
 Keep that terminal running. In your browser on the same computer, enter

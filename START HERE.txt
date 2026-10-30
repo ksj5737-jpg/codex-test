@@ -13,8 +13,10 @@ FACE LIBRARY - WINDOWS
 
 Keep the terminal open. Press Ctrl+C to stop the server.
 
-Python 3.12 is recommended. If Python is missing, install it from python.org
-and select "Add python.exe to PATH", then run the launcher again.
+Python 3.12, 64-bit is required. To install it, run in PowerShell:
+winget install -e --id Python.Python.3.12 --architecture x64
+Then close the launcher and open it again. Other Python versions can stay.
+The launcher uses .venv312 and preserves older .venv folders and your data.
 
 The app detects faces and lets you tag them manually. It does not identify
 people or automatically match faces. No training photos are needed.
