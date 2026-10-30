@@ -4,18 +4,15 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-import cv2
-import numpy as np
 from flask import Flask, abort, jsonify, render_template, request, send_file
 from PIL import Image, ImageOps, UnidentifiedImageError
+from face_detector import FaceDetector, MODES
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 40 * 1024 * 1024
 DATA = Path(os.environ.get('PHOTO_DATA_DIR', Path(__file__).parent / 'data'))
 DATA.mkdir(parents=True, exist_ok=True)
-detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-if detector.empty():
-    raise RuntimeError('Face detection model could not be loaded')
+detector = FaceDetector()
 
 
 def db():
@@ -67,6 +64,9 @@ def photos():
 
 @app.post('/api/upload')
 def upload():
+    mode = request.form.get('mode', 'Balanced')
+    if mode not in MODES:
+        return jsonify(error='Choose Strict, Balanced, or Sensitive detection.'), 400
     files = request.files.getlist('images')
     if not files:
         return jsonify(error='Select at least one image.'), 400
@@ -78,8 +78,7 @@ def upload():
                     raise ValueError('Image exceeds 30 megapixels')
                 img = ImageOps.exif_transpose(original).convert('RGB')
                 img.thumbnail((2400, 2400))
-            gray = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2GRAY)
-            boxes = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            boxes = detector.detect(img, mode)
             photo_id = uuid.uuid4().hex
             img.save(DATA / f'{photo_id}.jpg', quality=90)
             face_ids = []
@@ -124,6 +123,17 @@ def tag(face_id):
     with db() as conn:
         if not conn.execute('UPDATE faces SET tag=? WHERE id=?', (value.strip(), face_id)).rowcount:
             abort(404)
+    return jsonify(ok=True)
+
+
+@app.delete('/api/faces/<face_id>')
+def remove_face(face_id):
+    with db() as conn:
+        row = conn.execute('SELECT id FROM faces WHERE id=?', (face_id,)).fetchone()
+        if row is None:
+            abort(404)
+        conn.execute('DELETE FROM faces WHERE id=?', (face_id,))
+    (DATA / (row['id'] + '.jpg')).unlink(missing_ok=True)
     return jsonify(ok=True)
 
 

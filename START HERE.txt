@@ -9,6 +9,11 @@ FACE LIBRARY - WINDOWS
 7. Select a photo on the left, review the faces, enter a tag, and click Save tag.
 8. Use the Show dropdown to filter photos by tag.
 
+Accuracy: choose Balanced initially. Before importing, choose Strict if objects
+are detected as faces, or Sensitive if real faces are missed. Sensitive may add
+more false faces. Click Not a face to remove a wrong thumbnail without deleting
+the photo. Mode changes affect new imports only; re-import to try another mode.
+
 Close the desktop window to exit. Let active imports finish before closing.
 
 Python 3.12, 64-bit is required. To install it, run in PowerShell:

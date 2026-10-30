@@ -18,13 +18,13 @@ def library_request(path, **kwargs):
         return result
 
 
-def import_files(paths):
+def import_files(paths, mode='Balanced'):
     results = []
     for path in paths:
         try:
             with open(path, 'rb') as source:
                 results.extend(library_request('/api/upload', method='POST',
-                    data={'images': (source, Path(path).name)}))
+                    data={'images': (source, Path(path).name), 'mode': mode}))
         except Exception as error:
             results.append({'name': Path(path).name, 'ok': False, 'error': str(error)})
     return results
@@ -52,6 +52,13 @@ class FaceLibrary(tk.Tk):
         self.filter = ttk.Combobox(top, state='readonly', width=28)
         self.filter.pack(side='left')
         self.filter.bind('<<ComboboxSelected>>', lambda event: self.render_list())
+        settings = ttk.Frame(self, padding=(16, 0, 16, 10))
+        settings.pack(fill='x')
+        ttk.Label(settings, text='Detection for new imports: ').pack(side='left')
+        self.mode = ttk.Combobox(settings, state='readonly', values=['Strict', 'Balanced', 'Sensitive'], width=12)
+        self.mode.set('Balanced')
+        self.mode.pack(side='left')
+        ttk.Label(settings, text='  Strict: fewer false faces · Sensitive: more faces, more false detections').pack(side='left')
         split = ttk.Panedwindow(self, orient='horizontal')
         split.pack(fill='both', expand=True, padx=16)
         left = ttk.Frame(split)
@@ -139,6 +146,7 @@ class FaceLibrary(tk.Tk):
                 value = tk.StringVar(value=face['tag'])
                 ttk.Entry(row, textvariable=value, width=30).pack(side='left')
                 ttk.Button(row, text='Save tag', command=lambda f=face['id'], v=value: self.save_tag(f, v.get())).pack(side='left', padx=8)
+                ttk.Button(row, text='Not a face', command=lambda f=face['id']: self.remove_face(f)).pack(side='left')
         except OSError as error:
             self.status.set('Could not load stored image: ' + str(error))
 
@@ -158,12 +166,23 @@ class FaceLibrary(tk.Tk):
         self.busy = True
         self.import_button.state(['disabled'])
         self.status.set(f'Importing {len(paths)} photos and detecting faces…')
+        mode = self.mode.get()
         def work():
             try:
-                self.jobs.put(('done', import_files(paths)))
+                self.jobs.put(('done', import_files(paths, mode)))
             except Exception as error:
                 self.jobs.put(('error', str(error)))
         threading.Thread(target=work, daemon=True).start()
+
+    def remove_face(self, face_id):
+        if not messagebox.askyesno('Remove detection', 'Remove this face thumbnail and its tag? The original stored photo will remain.', parent=self):
+            return
+        try:
+            library_request('/api/faces/' + face_id, method='DELETE')
+            self.refresh()
+            self.status.set('False detection removed. This does not retrain the detector.')
+        except Exception as error:
+            messagebox.showerror('Could not remove detection', str(error), parent=self)
 
     def poll_jobs(self):
         try:

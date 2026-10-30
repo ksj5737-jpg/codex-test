@@ -26,7 +26,7 @@ class PhotoWorkflow(unittest.TestCase):
 
     def test_import_tag_and_persistence(self):
         with patch.object(module, 'detector') as detector:
-            detector.detectMultiScale.return_value = [(10, 10, 40, 40)]
+            detector.detect.return_value = [(10, 10, 40, 40)]
             response = self.client.post('/api/upload', data={'images': (self.image(), 'sample.png')})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json[0]['faces'], 1)
@@ -46,6 +46,23 @@ class PhotoWorkflow(unittest.TestCase):
         self.assertEqual(response.json[0]['faces'], 0)
         self.assertTrue(response.json[0]['ok'])
 
+    def test_detection_modes_and_removing_false_face(self):
+        response = self.client.post('/api/upload', data={'mode': 'Unknown', 'images': (self.image(), 'blank.png')})
+        self.assertEqual(response.status_code, 400)
+        with patch.object(module, 'detector') as detector:
+            detector.detect.return_value = [(10, 10, 40, 40)]
+            self.client.post('/api/upload', data={'mode': 'Strict', 'images': (self.image(), 'blank.png')})
+            self.assertEqual(detector.detect.call_args.args[1], 'Strict')
+        photo = self.client.get('/api/photos').json[0]
+        face_id = photo['faces'][0]['id']
+        crop = module.DATA / (face_id + '.jpg')
+        self.assertTrue(crop.exists())
+        self.assertEqual(self.client.delete('/api/faces/' + face_id).status_code, 200)
+        self.assertFalse(crop.exists())
+        self.assertEqual(self.client.get('/api/photos').json[0]['faces'], [])
+        self.assertTrue((module.DATA / (photo['id'] + '.jpg')).exists())
+        self.assertEqual(self.client.delete('/api/faces/' + face_id).status_code, 404)
+
     def test_invalid_upload(self):
         self.assertEqual(self.client.post('/api/upload').status_code, 400)
         response = self.client.post('/api/upload', data={'images': (io.BytesIO(b'invalid'), 'bad.png')})
@@ -58,7 +75,7 @@ class PhotoWorkflow(unittest.TestCase):
             image = os.path.join(folder, 'blank.png')
             Image.new('RGB', (100, 100), 'white').save(image)
             with patch.object(module, 'detector') as detector, patch.object(module.app, 'run', side_effect=AssertionError('No server should start')):
-                detector.detectMultiScale.return_value = [(10, 10, 40, 40)]
+                detector.detect.return_value = [(10, 10, 40, 40)]
                 result = import_files([image, os.path.join(folder, 'missing.png')])
                 self.assertTrue(result[0]['ok'])
                 self.assertFalse(result[1]['ok'])

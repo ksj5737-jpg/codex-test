@@ -56,8 +56,22 @@ re-encoded without original EXIF metadata. No photos are sent to an external API
 Keep original images separately. To erase this library, stop the app and remove
 its data directory. Do not commit private photos to Git.
 
-The bundled OpenCV detector can miss side profiles, small faces, and obscured
-faces, and can produce false positives. No-face images are still imported.
+Detection uses OpenCV's ResNet-10 SSD face model instead of the older Haar
+cascade. Large photos also get overlapping tiled passes to help with smaller
+faces. The model is bundled, so runtime photo processing stays offline.
+
+Before importing, choose **Strict** (score threshold 0.95) for fewer false
+faces, **Balanced** (0.80, default), or **Sensitive** (0.60) for more detections.
+Scores are model outputs, not calibrated probabilities. Sensitive can add false
+faces; Strict can miss real ones. **Not a face** removes a wrong thumbnail and
+its tag while retaining the photo. This does not train or improve the model.
+Changing the mode affects new imports only. Re-import an original image to try
+a different mode; this creates a separate photo and does not move existing tags.
+
+For best results, use sharp original images with well-lit, unobscured faces.
+Detection can still miss profiles or tiny faces and can produce false positives.
+No-face images are still imported. No accuracy percentage is claimed without
+evaluating representative photos with manually marked faces.
 The desktop app imports one image at a time, up to 40 MB and 30 megapixels per
 image. No labeled training set is required.
 
