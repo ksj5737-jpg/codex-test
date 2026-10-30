@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Face Library</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#18232e;font:16px system-ui,sans-serif}main{max-width:1150px;margin:48px auto;padding:0 24px}h1{font-size:40px;letter-spacing:-1.5px;margin-bottom:8px}.subtitle{color:#536271;line-height:1.6}.panel{background:white;border:1px solid #dce2e8;border-radius:16px;padding:24px;margin:24px 0}.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}button,select,input{font:inherit;border:1px solid #c5ced8;border-radius:8px;padding:10px}button{background:#185c4b;color:white;cursor:pointer}button:disabled{opacity:.5}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}.photo{background:white;border:1px solid #dce2e8;border-radius:12px;overflow:hidden}.original{width:100%;height:220px;object-fit:contain;background:#e8edf0}.details{padding:16px}.name{overflow-wrap:anywhere;font-weight:600}.faces{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}.face{width:110px}.face img{width:100px;height:100px;object-fit:cover;border-radius:8px}.face input{width:100%;font-size:13px;padding:7px}.face button{margin-top:5px;font-size:13px;padding:6px 12px}.muted{color:#637282;font-size:14px}#status{white-space:pre-line;line-height:1.6}a{color:#185c4b}.badge{font-size:12px;letter-spacing:1px;color:#185c4b;font-weight:700}
+</style>
+<main>
+<span class="badge">LOCAL PHOTO ORGANIZER</span><h1>Face Library</h1>
+<p class="subtitle">Find faces in your photos, review the thumbnails, and add your own person tags.<br>Tags are assigned by you. The app does not recognize identities or automatically match people.</p>
+<section class="panel"><div id="connection" role="status">Checking connection to the photo server…</div><div id="help" hidden><p>This HTML preview cannot import photos by itself. Run the Python app on your computer, then open <code>http://127.0.0.1:5000</code> in that computer’s browser.</p><p>From the project folder, run:</p><pre>python -m venv .venv
+# macOS / Linux
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python app.py
+
+# Windows PowerShell
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe app.py</pre><button id="retry" type="button">Check connection again</button></div><form id="upload" class="controls"><input aria-label="Choose images" type="file" id="files" accept="image/jpeg,image/png,image/webp" multiple required disabled><button id="import" disabled>Import photos</button></form><p class="muted">JPEG, PNG, or WebP · up to 40 MB per batch · 30 megapixels per image. Photos stay on the machine running the app.</p><div id="status" role="status" aria-live="polite"></div></section>
+<section class="controls"><label for="filter">Show photos</label><select id="filter"><option value="all">All photos</option></select><span id="count" class="muted"></span></section>
+<p class="muted">Face detection may miss small, angled, or obscured faces. Untagged photos remain available under “All photos”.</p><div id="grid"></div>
+</main>
+<script>
+let photos=[];const $=s=>document.querySelector(s);
+function el(tag, cls, text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+async function api(url,opts){let r;try{r=await fetch(url,{...opts,signal:AbortSignal.timeout(120000)})}catch(e){throw Error('Cannot reach the photo server. Make sure the Python app is running and open its address in your browser.')}if(!r.headers.get('content-type')?.includes('application/json'))throw Error('This page is not connected to the Python photo server. Open the app at http://127.0.0.1:5000 on the computer running it.');let data;try{data=await r.json()}catch(e){throw Error('The photo server returned an invalid response. Check its terminal for errors.')}if(!r.ok)throw Error(data.error||'Request failed (HTTP '+r.status+'). Check the app terminal.');return data}
+async function connect(){
+ $('#import').disabled=true;$('#files').disabled=true;$('#retry').disabled=true;
+ $('#connection').textContent='Checking connection to the photo server…';
+ try{const health=await api('/api/health');if(health.service!=='face-library'||!health.ready)throw Error('The photo server is not available at this address.');await load();$('#connection').textContent='Connected · ready to import';$('#help').hidden=true;$('#import').disabled=false;$('#files').disabled=false}
+ catch(e){$('#connection').textContent=e.message;$('#help').hidden=false}
+ finally{$('#retry').disabled=false}
+}
+async function load(){photos=await api('/api/photos');const previous=$('#filter').value;$('#filter').replaceChildren(new Option('All photos','all'),new Option('Photos with untagged faces','untagged'));const tags=[...new Set(photos.flatMap(p=>p.faces.map(f=>f.tag)).filter(Boolean))].sort();for(const tag of tags)$('#filter').add(new Option(tag,'tag:'+tag));if([...$('#filter').options].some(o=>o.value===previous))$('#filter').value=previous;render()}
+function render(){const filter=$('#filter').value;const visible=photos.filter(p=>filter==='all'||p.faces.some(f=>filter==='untagged'?!f.tag:f.tag===filter.slice(4)));$('#count').textContent=visible.length+' photos';$('#grid').replaceChildren();if(!visible.length)$('#grid').append(el('p','muted','No photos here yet. Import images to start reviewing faces.'));for(const p of visible){const card=el('article','photo');const link=el('a');link.href='/media/'+p.id;link.target='_blank';link.rel='noopener';const image=el('img','original');image.src=link.href;image.alt=p.name;image.loading='lazy';link.append(image);card.append(link);const detail=el('div','details');detail.append(el('div','name',p.name),el('div','muted',p.faces.length+' detected faces'));const faces=el('div','faces');for(const f of p.faces){const box=el('div','face'),thumb=el('img');thumb.src='/media/'+f.id;thumb.alt='Detected face for manual review';thumb.loading='lazy';const input=el('input');input.value=f.tag;input.maxLength=80;input.placeholder='Person tag';input.setAttribute('aria-label','Person tag');const button=el('button',null,'Save tag');button.onclick=async()=>{button.disabled=true;try{await api('/api/faces/'+f.id+'/tag',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tag:input.value})});await load();$('#status').textContent='Tag saved.'}catch(e){$('#status').textContent=e.message;button.disabled=false}};box.append(thumb,input,button);faces.append(box)}detail.append(faces);card.append(detail);$('#grid').append(card)}}
+$('#filter').onchange=render;
+$('#upload').onsubmit=async e=>{e.preventDefault();const body=new FormData();for(const file of $('#files').files)body.append('images',file);$('#import').disabled=true;$('#status').textContent='Importing and detecting faces…';try{const result=await api('/api/upload',{method:'POST',body});$('#status').textContent=result.map(r=>r.name+': '+(r.ok?r.faces+' faces detected':r.error)).join('\n');await load();$('#files').value=''}catch(err){$('#status').textContent=err.message}finally{$('#import').disabled=false}};
+$('#retry').onclick=connect;
+connect();
+</script>
+</html>

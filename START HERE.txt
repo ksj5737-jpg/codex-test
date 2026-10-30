@@ -1,0 +1,23 @@
+FACE LIBRARY - WINDOWS
+
+1. Extract the entire ZIP. Do not run files inside the ZIP preview.
+2. Open the extracted face-library folder.
+3. Double-click "Start Face Library.bat".
+4. The first start installs dependencies and needs Internet access.
+5. When the terminal says the server is running, open this address in a browser:
+
+   http://127.0.0.1:5000
+
+6. The page should say "Connected - ready to import" (with a dot separator).
+7. Import a few photos, review the detected faces, and enter your own tags.
+
+Keep the terminal open. Press Ctrl+C to stop the server.
+
+Python 3.12 is recommended. If Python is missing, install it from python.org
+and select "Add python.exe to PATH", then run the launcher again.
+
+The app detects faces and lets you tag them manually. It does not identify
+people or automatically match faces. No training photos are needed.
+
+Photos and tags are stored in the data folder on this computer. Keep your
+original photos separately. See README.md for details and macOS/Linux commands.
